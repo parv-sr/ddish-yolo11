@@ -1,0 +1,7 @@
+data/raw/
+data/processed/
+runs/
+*.pt
+*.pth
+.venv/
+__pycache__/
