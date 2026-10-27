@@ -32,6 +32,17 @@ def main():
     images = batch["images"].to(device)
 
     model = DDishYOLO(variant="n").to(device)
+
+    for name, module in [
+    ("Shared", model.shared),
+    ("Nucleus head", model.nucleus_head),
+    ("Signal head", model.signal_head),
+    ]:
+        parameters = list(module.parameters())
+        trainable = sum(p.requires_grad for p in parameters)
+
+        print(f"{name}: {trainable}/{len(parameters)} trainable tensors")
+
     model.train()
 
     print("\nInput:", tuple(images.shape))
