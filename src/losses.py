@@ -1,4 +1,4 @@
-from typing import SimpleNamespace
+from types import SimpleNamespace
 
 import torch
 
