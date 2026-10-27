@@ -68,6 +68,7 @@ class DDishYOLO(nn.Module):
         # All layers except the original final segmentation head.
         # This includes the backbone and multiscale feature neck.
         self.shared = seg_model.model[:-1]
+        self.shared.requires_grad_(True)    # Unfreeze base model weights for finetuning
 
         # Ultralytics layers reference earlier outputs using .f
         # and identify themselves using .i.
