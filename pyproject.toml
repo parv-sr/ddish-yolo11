@@ -11,5 +11,6 @@ dependencies = [
     "numpy>=2.5.4",
     "pillow>=13.0.0",
     "torch>=2.14.1",
+    "ultralytics>=8.4.190",
 ]
 
