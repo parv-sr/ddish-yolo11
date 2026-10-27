@@ -153,7 +153,6 @@ def main():
         f"Train: {len(train_records)} / "
         f"Val: {len(val_records)}"
     )
-    print("Held-out source groups:", held_out)
 
     train_loader = make_loader(
         train_records,
