@@ -5,3 +5,5 @@ runs/
 *.pth
 .venv/
 __pycache__/
+uv.lock
+*.lock
