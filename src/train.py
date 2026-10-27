@@ -13,6 +13,7 @@ from src.dataset import (
     collate_ddish,
     load_records,
     split_by_source,
+    split_random,
 )
 from src.losses import DDishLoss
 from src.model import DDishYOLO
@@ -31,7 +32,12 @@ def parse_args():
         default=Path("runs/ddish11n"),
     )
     parser.add_argument("--resume", action="store_true")
-
+    parser.add_argument(
+        "--split",
+        choices=["source", "random"],
+        default="source",
+        help="Training/validation splitting strategy",
+    )
     return parser.parse_args()
 
 
@@ -120,9 +126,27 @@ def main():
     )
 
     records = load_records("data/raw")
-    train_records, val_records, held_out = split_by_source(
-        records, seed=42
-    )
+
+    if args.split == "random":
+        train_records, val_records, split_ids = split_random(
+            records,
+            seed=42,
+            val_fraction=0.2,
+        )
+    else:
+        train_records, val_records, split_ids = split_by_source(
+            records,
+            seed=42,
+        )
+
+    print("Split strategy:", args.split)
+    print("Training images:", len(train_records))
+    print("Validation images:", len(val_records))
+
+    if args.split == "source":
+        print("Validation source groups:", split_ids)
+    else:
+        print("Random validation image IDs:", len(split_ids))
 
     print("Device:", device)
     print(
@@ -175,8 +199,14 @@ def main():
             map_location=device,
             weights_only=True,
         )
+ 
+        saved_split = checkpoint.get("split", "source")
+        saved_ids = checkpoint.get(
+            "split_ids",
+            checkpoint.get("held_out"),
+        )
 
-        if checkpoint["held_out"] != held_out:
+        if saved_split != args.split or saved_ids != split_ids:
             raise RuntimeError("Training split mismatch")
 
         model.load_state_dict(checkpoint["model"])
@@ -250,7 +280,8 @@ def main():
             "optimizer": optimizer.state_dict(),
             "scheduler": scheduler.state_dict(),
             "best_val": best_val,
-            "held_out": held_out,
+            "split" : args.split,
+            "split_ids" : split_ids,
             "variant": "n",
             "signal_classes": [
                 "fusion(Her2+Chr17)",

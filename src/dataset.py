@@ -72,6 +72,40 @@ def split_by_source(records, seed=42):
     val = [r for r in records if r["group"] in held_out]
     return train, val, sorted(held_out)
 
+def split_random(records, seed=42, val_fraction=0.2):
+    """
+    Randomly partition individual image patches.
+
+    Returns:
+        train_records
+        val_records
+        val_ids: sorted validation image paths
+    """
+    if not 0 < val_fraction < 1:
+        raise ValueError("val_fraction must be between 0 and 1")
+
+    shuffled = sorted(
+        records,
+        key=lambda record: str(record["path"]),
+    )
+
+    rng = random.Random(seed)
+    rng.shuffle(shuffled)
+
+    n_val = round(len(shuffled) * val_fraction)
+
+    if not 1 <= n_val < len(shuffled):
+        raise ValueError("Invalid validation set size")
+
+    val_records = shuffled[:n_val]
+    train_records = shuffled[n_val:]
+
+    val_ids = sorted(
+        str(record["path"]) for record in val_records
+    )
+
+    return train_records, val_records, val_ids
+
 
 def normalized_xywh(box, width, height):
     """COCO [left, top, width, height] -> YOLO [cx, cy, w, h] in [0, 1]."""
