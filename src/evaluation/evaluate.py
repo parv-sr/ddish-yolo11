@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 import torch
 from torch.utils.data import DataLoader
 
@@ -168,6 +170,62 @@ def save_csv(
         writer.writeheader()
         writer.writerows(rows)
 
+def print_confidence_sweep(
+    metric: APAccumulator,
+    thresholds: tuple[float, ...] = (
+        0.001, 0.05, 0.10, 0.15,
+        0.20, 0.25, 0.35, 0.50,
+    ),
+) -> None:
+    """Report per-class P/R/F1 at different confidence levels."""
+
+    for class_id, class_name in enumerate(metric.class_names):
+        scores: np.ndarray = np.concatenate(
+            metric.scores[class_id]
+        )
+
+        correct: np.ndarray = np.concatenate(
+            metric.matches[class_id],
+            axis=0,
+        )
+
+        n_gt: int = int(metric.gt_count[class_id])
+
+        print(f"\n{class_name}")
+        print(
+            f"{'Conf':>7} {'Pred':>7} {'TP':>7} "
+            f"{'P':>9} {'R':>9} {'F1':>9}"
+        )
+
+        for threshold in thresholds:
+            selected: np.ndarray = scores >= threshold
+
+            n_pred: int = int(selected.sum())
+            tp: int = int(correct[selected, 0].sum())
+            fp: int = n_pred - tp
+
+            precision: float = (
+                tp / (tp + fp) if tp + fp else 0.0
+            )
+
+            recall: float = (
+                tp / n_gt if n_gt else 0.0
+            )
+
+            f1: float = (
+                2.0 * precision * recall / (precision + recall)
+                if precision + recall else 0.0
+            )
+
+            print(
+                f"{threshold:7.3f} "
+                f"{n_pred:7d} "
+                f"{tp:7d} "
+                f"{precision:9.3f} "
+                f"{recall:9.3f} "
+                f"{f1:9.3f}"
+            )
+
 
 def main() -> None:
 
@@ -311,6 +369,9 @@ def main() -> None:
 
     signal_results = signal_metric.summarize()
     nucleus_results = nucleus_metric.summarize()
+
+    print_confidence_sweep(signal_metric)
+    print_confidence_sweep(nucleus_metric)
 
     print_table(
         "GENE SIGNAL DETECTION (boxes)",
