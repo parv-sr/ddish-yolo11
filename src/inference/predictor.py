@@ -46,7 +46,10 @@ class DDishPredictor:
         }
 
         model = DDishYOLO(
-            variant=checkpoint.get("variant", "n")
+           variant=checkpoint.get("variant", "n"),
+           p2_detection=bool(
+            checkpoint.get("p2_detection", False)
+            ),
         )
 
         model.load_state_dict(

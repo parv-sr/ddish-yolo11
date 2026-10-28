@@ -19,7 +19,7 @@ from src.losses import DDishLoss
 from src.model import DDishYOLO
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--epochs", type=int, default=30)
@@ -37,6 +37,11 @@ def parse_args():
         choices=["source", "random"],
         default="source",
         help="Training/validation splitting strategy",
+    )
+    parser.add_argument(
+        "--p2-detection",
+        action="store_true",
+        help="Enable the high-res P2 signal detection branch."
     )
     return parser.parse_args()
 
@@ -170,7 +175,7 @@ def main():
         device.type == "cuda",
     )
 
-    model = DDishYOLO(variant="n").to(device)
+    model = DDishYOLO(variant="n", p2_detection=args.p2_detection).to(device)
     criterion = DDishLoss(model)
 
     optimizer = torch.optim.AdamW(
@@ -198,7 +203,17 @@ def main():
             map_location=device,
             weights_only=True,
         )
- 
+
+        saved_p2: bool = bool(
+            checkpoint.get("p2_detection", False)
+        )
+
+        if saved_p2 != args.p2_detection:
+            raise RuntimeError(
+                "P2 architecture mismatch. "
+                "Use the correct --p2-detection flag."
+            )
+        #-------------------------------------------------------------
         saved_split = checkpoint.get("split", "source")
         saved_ids = checkpoint.get(
             "split_ids",
@@ -281,6 +296,7 @@ def main():
             "best_val": best_val,
             "split" : args.split,
             "split_ids" : split_ids,
+            "p2_detection" : args.p2_detection,
             "variant": "n",
             "signal_classes": [
                 "fusion(Her2+Chr17)",
