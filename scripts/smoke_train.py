@@ -35,7 +35,7 @@ def main():
     images = batch["images"].to(device)
     targets = batch["targets"]
 
-    model = DDishYOLO(variant="n").to(device)
+    model = DDishYOLO(variant="n", p2_detection=True).to(device)
     model.train()
 
     criterion = DDishLoss(model)
