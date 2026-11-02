@@ -3,6 +3,7 @@ import csv
 import random
 import time
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch
@@ -17,6 +18,7 @@ from src.dataset import (
 )
 from src.losses import DDishLoss
 from src.model import DDishYOLO
+from src.augment import GeometricAugment
 
 
 def parse_args() -> argparse.Namespace:
@@ -43,12 +45,34 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Enable the high-res P2 signal detection branch."
     )
+    parser.add_argument(
+        "--geom-augment",
+        action="store_true",
+        help="Enable synchronised geometric augmentation"
+    )
+
     return parser.parse_args()
 
 
-def make_loader(records, batch_size, shuffle, workers, pin_memory):
+def make_loader(
+    records: list[dict[str, Any]],
+    batch_size: int,
+    shuffle: bool,
+    workers: int,
+    pin_memory: bool,
+    augment: bool = False,
+) -> DataLoader:
+    dataset = DDishDataset(
+        records,
+        transform=(
+            GeometricAugment()
+            if augment
+            else None
+        ),
+    )
+
     return DataLoader(
-        DDishDataset(records),
+        dataset,
         batch_size=batch_size,
         shuffle=shuffle,
         num_workers=workers,
@@ -56,7 +80,6 @@ def make_loader(records, batch_size, shuffle, workers, pin_memory):
         pin_memory=pin_memory,
         persistent_workers=workers > 0,
     )
-
 
 def run_epoch(model, criterion, loader, optimizer, device):
     training = optimizer is not None
@@ -165,6 +188,7 @@ def main():
         True,
         args.workers,
         device.type == "cuda",
+        argument=args.geom_augment
     )
 
     val_loader = make_loader(
@@ -173,6 +197,7 @@ def main():
         False,
         args.workers,
         device.type == "cuda",
+        argument=False
     )
 
     model = DDishYOLO(variant="n", p2_detection=args.p2_detection).to(device)
@@ -203,6 +228,10 @@ def main():
             map_location=device,
             weights_only=True,
         )
+
+        saved_augment: bool = bool(checkpoint.get("geom_augment", False))
+        if saved_augment != args.geom_augment:
+            raise RuntimeError("Augmentation configuration mismatch")
 
         saved_p2: bool = bool(
             checkpoint.get("p2_detection", False)
@@ -293,6 +322,7 @@ def main():
             "model": model.state_dict(),
             "optimizer": optimizer.state_dict(),
             "scheduler": scheduler.state_dict(),
+            "geom_augment" : args.geom_augment,
             "best_val": best_val,
             "split" : args.split,
             "split_ids" : split_ids,
