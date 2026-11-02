@@ -17,13 +17,15 @@ from src.dataset import (
     split_random,
 )
 from src.losses import DDishLoss
-from src.model import DDishYOLO
+from src.model_variants import MODEL_NAMES, MODEL_SIZES, ModelConfig, build_model
 from src.augment import GeometricAugment
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
+    parser.add_argument("--model", choices=MODEL_NAMES, default="baseline")
+    parser.add_argument("--size", choices=MODEL_SIZES, default="n")
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=1e-4)
@@ -81,7 +83,7 @@ def make_loader(
         persistent_workers=workers > 0,
     )
 
-def run_epoch(model, criterion, loader, optimizer, device):
+def run_epoch(model: torch.nn.Module, criterion: DDishLoss, loader: DataLoader, optimizer: torch.optim.Optimizer | None, device: torch.device) -> np.ndarray:
     training = optimizer is not None
 
     if training:
@@ -134,7 +136,7 @@ def run_epoch(model, criterion, loader, optimizer, device):
     return totals / n_images
 
 
-def main():
+def main() -> None:
     args = parse_args()
 
     if args.epochs < 1 or args.batch_size < 1:
@@ -200,7 +202,9 @@ def main():
         augment=False
     )
 
-    model = DDishYOLO(variant="n", p2_detection=args.p2_detection).to(device)
+    config: ModelConfig = ModelConfig(name=args.model, size=args.size, p2_detection=args.p2_detection)
+    model = build_model(config).to(device)
+    print(f"Model: {config.name} | size: {config.size} | parameters: {sum(p.numel() for p in model.parameters()):,}")
     criterion = DDishLoss(model)
 
     optimizer = torch.optim.AdamW(
@@ -229,6 +233,9 @@ def main():
             weights_only=True,
         )
 
+        if ModelConfig.from_checkpoint(checkpoint) != config:
+            raise RuntimeError("Checkpoint model configuration mismatch")
+
         saved_augment: bool = bool(checkpoint.get("geom_augment", False))
         if saved_augment != args.geom_augment:
             raise RuntimeError("Augmentation configuration mismatch")
@@ -242,7 +249,6 @@ def main():
                 "P2 architecture mismatch. "
                 "Use the correct --p2-detection flag."
             )
-        #-------------------------------------------------------------
         saved_split = checkpoint.get("split", "source")
         saved_ids = checkpoint.get(
             "split_ids",
@@ -327,7 +333,8 @@ def main():
             "split" : args.split,
             "split_ids" : split_ids,
             "p2_detection" : args.p2_detection,
-            "variant": "n",
+            "variant": config.size,
+            "model_config": config.to_dict(),
             "signal_classes": [
                 "fusion(Her2+Chr17)",
                 "pink(Chr17)",
