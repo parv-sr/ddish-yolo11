@@ -119,7 +119,7 @@ def normalized_xywh(box, width, height):
 
 
 class DDishDataset(Dataset):
-    def __init__(self, records: Sequence[dict[str, Any]], transform: Callable[[dict[str, Any], dict[str, Any]]] | None = None) -> None:
+    def __init__(self, records: Sequence[dict[str, Any]], transform: Callable[[dict[str, Any]], dict[str, Any]] | None = None) -> None:
         self.records = list(records)
         self.transform = transform
 
