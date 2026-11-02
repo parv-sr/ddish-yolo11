@@ -188,7 +188,7 @@ def main():
         True,
         args.workers,
         device.type == "cuda",
-        argument=args.geom_augment
+        augment=args.geom_augment
     )
 
     val_loader = make_loader(
@@ -197,7 +197,7 @@ def main():
         False,
         args.workers,
         device.type == "cuda",
-        argument=False
+        augment=False
     )
 
     model = DDishYOLO(variant="n", p2_detection=args.p2_detection).to(device)
