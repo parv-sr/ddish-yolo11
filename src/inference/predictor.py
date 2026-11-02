@@ -9,7 +9,7 @@ from src.inference.postprocess import (
     PatchPredictions,
     decode_batch,
 )
-from src.model import DDishYOLO
+from src.model_variants import ModelConfig, build_model
 
 
 class DDishPredictor:
@@ -45,12 +45,7 @@ class DDishPredictor:
             if key not in {"model", "optimizer", "scheduler"}
         }
 
-        model = DDishYOLO(
-           variant=checkpoint.get("variant", "n"),
-           p2_detection=bool(
-            checkpoint.get("p2_detection", False)
-            ),
-        )
+        model = build_model(ModelConfig.from_checkpoint(checkpoint))
 
         model.load_state_dict(
             checkpoint["model"],
