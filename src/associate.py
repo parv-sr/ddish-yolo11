@@ -66,7 +66,7 @@ def associate_signals(
     masks are excluded from nucleus-wise counts but
     preserved in the report.
     """
-    if (not 0.0 <= nucleus_conf <= 1.0 and 0.0 <= signal_conf <= 1.0):
+    if not (0.0 <= nucleus_conf <= 1.0 and 0.0 <= signal_conf <= 1.0):
         raise ValueError("Confidence thresholds must be between 0 and 1")
 
     if prediction.nuclei.masks is None:

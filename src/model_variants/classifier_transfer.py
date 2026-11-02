@@ -44,6 +44,8 @@ def transfer_classifier_trunks(destination: Detect, source: Detect) -> int:
             replacement.bias.copy_(current.bias)
 
         branch[-1] = replacement
+        branch.requires_grad_(True)
+        branch.train(destination.training)
         destination.cv3[target_index] = branch
         copied += sum(parameter.numel() for parameter in branch[:-1].parameters())
 
