@@ -1,4 +1,5 @@
 """COCO-backed paired nucleus-segmentation and gene-signal detection data."""
+from typing import Any, Callable, Sequence
 
 import json
 import random
@@ -118,15 +119,17 @@ def normalized_xywh(box, width, height):
 
 
 class DDishDataset(Dataset):
-    def __init__(self, records):
+    def __init__(self, records: Sequence[dict[str, Any]], transform: Callable[[dict[str, Any], dict[str, Any]]] | None = None) -> None:
         self.records = list(records)
+        self.transform = transform
 
     def __len__(self):
         return len(self.records)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> dict[str, Any]:
         record = self.records[index]
         width, height = record["width"], record["height"]
+
         with Image.open(record["path"]) as image:
             image = image.convert("RGB")
             if image.size != (width, height):
@@ -136,20 +139,27 @@ class DDishDataset(Dataset):
 
         nuclei_masks, nuclei_boxes = [], []
         signal_boxes, signal_classes = [], []
+
         for ann in record["annotations"]:
             name = record["names"][ann["category_id"]]
+
             if name == "Nucleus":
                 canvas = Image.new("L", (width, height), 0)
                 draw = ImageDraw.Draw(canvas)
+
                 for polygon in ann.get("segmentation", []):
                     if len(polygon) >= 6 and len(polygon) % 2 == 0:
                         points = list(zip(polygon[::2], polygon[1::2]))
                         draw.polygon(points, fill=1)
+
                 mask = np.array(canvas, dtype=np.uint8)
+
                 if not mask.any():
                     raise ValueError(f"Empty nucleus polygon in {record['path']}, ann {ann['id']}")
+
                 nuclei_masks.append(mask)
                 nuclei_boxes.append(normalized_xywh(ann["bbox"], width, height))
+
             elif name in SIGNAL_CLASS_IDS:
                 signal_boxes.append(normalized_xywh(ann["bbox"], width, height))
                 signal_classes.append(SIGNAL_CLASS_IDS[name])
@@ -161,7 +171,7 @@ class DDishDataset(Dataset):
         def boxes_tensor(boxes):
             return torch.tensor(boxes, dtype=torch.float32).reshape(-1, 4)
 
-        return {
+        sample: dict[str, Any] = {
             "image": pixels,
             "nucleus_masks": mask_tensor,
             "nucleus_boxes": boxes_tensor(nuclei_boxes),
@@ -170,6 +180,8 @@ class DDishDataset(Dataset):
             "source_group": record["group"],
             "path": str(record["path"]),
         }
+
+        return self.transform(sample) if self.transform is not None else sample
 
 
 def collate_ddish(batch):
