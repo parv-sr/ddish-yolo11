@@ -79,6 +79,12 @@ def main() -> None:
 
     loss.backward()
 
+    for level, branch in enumerate(model.signal_head.cv3):
+        for name, parameter in branch.named_parameters():
+            assert parameter.requires_grad, f"Frozen classifier parameter: {level}.{name}"
+            assert parameter.grad is not None, f"Missing classifier gradient: {level}.{name}"
+            assert torch.isfinite(parameter.grad).all().item(), f"Invalid classifier gradient: {level}.{name}"
+
     for name, module in [
         ("Shared", model.shared),
         ("Nucleus", model.nucleus_head),
