@@ -1,3 +1,5 @@
+import argparse
+
 import torch
 from torch.utils.data import DataLoader
 
@@ -7,11 +9,16 @@ from src.dataset import (
     load_records,
     split_by_source,
 )
-from src.model import DDishYOLO
+from src.model_variants import MODEL_NAMES, MODEL_SIZES, ModelConfig, build_model
 from src.losses import DDishLoss
 
 
-def main():
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", choices=MODEL_NAMES, default="baseline")
+    parser.add_argument("--size", choices=MODEL_SIZES, default="n")
+    parser.add_argument("--p2-detection", action="store_true")
+    args: argparse.Namespace = parser.parse_args()
 
     device = torch.device(
         "cuda" if torch.cuda.is_available() else "cpu"
@@ -35,7 +42,8 @@ def main():
     images = batch["images"].to(device)
     targets = batch["targets"]
 
-    model = DDishYOLO(variant="n", p2_detection=True).to(device)
+    config: ModelConfig = ModelConfig(name=args.model, size=args.size, p2_detection=args.p2_detection)
+    model = build_model(config).to(device)
     model.train()
 
     criterion = DDishLoss(model)
